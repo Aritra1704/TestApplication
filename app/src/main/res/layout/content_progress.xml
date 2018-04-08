@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior"
+    tools:context="com.zippr.testapplication.ui.ProgressActivity"
+    tools:showIn="@layout/activity_progress">
+
+    <ProgressBar
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:indeterminate="true"
+        android:progressDrawable="@drawable/progress_style" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/progress_start"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/ivArrow"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:tint="@color/progress_end"
+            app:srcCompat="@drawable/svg_right_double" />
+
+        <ImageView
+            android:id="@+id/ivStartBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@mipmap/ic_launcher" />
+    </FrameLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:background="@color/progress_start"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/ivSeekArrow"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:tint="@color/progress_end"
+            app:srcCompat="@drawable/svg_right_double" />
+
+        <SeekBar
+            android:id="@+id/sbReceive"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:progressDrawable="@color/color_transparent"
+            android:thumb="@mipmap/ic_launcher" />
+    </FrameLayout>
+</LinearLayout>

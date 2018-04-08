@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">TestApplication</string>
+    <string name="action_settings">Settings</string>
+    <string name="title_activity_progress">ProgressActivity</string>
+    <string name="title_activity_pick_loc">Map</string>
+    <string name="title_activity_loc_mark">Map</string>
+</resources>
