@@ -8,20 +8,30 @@ import android.graphics.Point;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.Loader;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import com.arpaul.gpslibrary.fetchAddressGeoCode.AddressConstants;
+import com.arpaul.gpslibrary.fetchAddressGeoCode.AddressDO;
+import com.arpaul.gpslibrary.fetchAddressGeoCode.FetchAddressLoader;
+import com.arpaul.utilitieslib.LogUtils;
 import com.arpaul.utilitieslib.PermissionUtils;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -36,6 +46,7 @@ import com.zippr.testapplication.datalayers.LocationDL;
 import com.zippr.testapplication.models.SelLocDO;
 
 import static com.zippr.testapplication.common.AppConstant.BUNDLE_LOC;
+import static com.zippr.testapplication.common.AppInstance.LOADER_FETCH_ADDRESS;
 import static com.zippr.testapplication.common.AppInstance.LOADER_SAVE_LOC;
 import static com.zippr.testapplication.dataaccess.DbCall.DbCallPref.SAVELOC;
 import static com.zippr.testapplication.common.AppConstant.INTENT_REFRESH_LIST;
@@ -44,15 +55,24 @@ public class PickLocActivity extends FragmentActivity implements
         OnMapReadyCallback,
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
-        LoaderManager.LoaderCallbacks {
+        LoaderManager.LoaderCallbacks,
+        GoogleMap.OnCameraIdleListener,
+        GoogleMap.OnCameraMoveStartedListener,
+        LocationListener {
+
+    private final String LOG_TAG = "PickLocActivity";
 
     private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
     private boolean isGpsEnabled = false;
     private LatLng currentLatLng;
     private ImageView ivMarker;
-    private boolean isMapReady = false, isConnected = false;
+    private EditText edtAddress;
+    private boolean isMapReady = false, isConnected = false, isUserInteracted = false, ispermissionGranted = false;
     private Button btnSelectLoc;
+    private LatLng geoPosi;
+    private ProgressBar pbLoad;
+    private LocationRequest mLocationRequest;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,9 +92,11 @@ public class PickLocActivity extends FragmentActivity implements
                         Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 101);
             } else {
                 buildGoogleApiClient();
+                ispermissionGranted = true;
             }
         } else {
             buildGoogleApiClient();
+            ispermissionGranted = true;
         }
 
         btnSelectLoc.setOnClickListener(new View.OnClickListener() {
@@ -84,26 +106,33 @@ public class PickLocActivity extends FragmentActivity implements
                 int[] locations = new int[2];
                 int x = ivMarker.getLeft() + (ivMarker.getRight() - ivMarker.getLeft())/2;
                 int y = ivMarker.getBottom();
-                final LatLng geoPosi = projection.fromScreenLocation(new Point(x, y));
+                geoPosi = projection.fromScreenLocation(new Point(x, y));
 
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        final int count = new LocationDL().fetchLocsCount(PickLocActivity.this);
+                if(!TextUtils.isEmpty(edtAddress.getText().toString())) {
+                    showLoader(true);
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            final int count = new LocationDL().fetchLocsCount(PickLocActivity.this);
 
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                SelLocDO objSelLoc = new SelLocDO("" + (count + 1), "sample", 1, geoPosi.latitude, geoPosi.longitude);
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
 
-                                Bundle bundle = new Bundle();
-                                bundle.putSerializable(BUNDLE_LOC, objSelLoc);
+                                    SelLocDO objSelLoc = new SelLocDO("" + (count + 1), edtAddress.getText().toString(), 1, geoPosi.latitude, geoPosi.longitude);
 
-                                getSupportLoaderManager().initLoader(LOADER_SAVE_LOC, bundle, PickLocActivity.this).forceLoad();
-                            }
-                        });
-                    }
-                }).start();
+                                    Bundle bundle = new Bundle();
+                                    bundle.putSerializable(BUNDLE_LOC, objSelLoc);
+
+                                    getSupportLoaderManager().initLoader(LOADER_SAVE_LOC, bundle, PickLocActivity.this).forceLoad();
+                                }
+                            });
+                        }
+                    }).start();
+                } else {
+                    Toast.makeText(PickLocActivity.this, "Unable to find your address", Toast.LENGTH_SHORT).show();
+                }
+
             }
         });
 
@@ -125,7 +154,19 @@ public class PickLocActivity extends FragmentActivity implements
             currentLatLng = new LatLng(location.getLatitude(), location.getLongitude());
             isConnected = true;
             showCurrentLatlng();
+            startIntentService();
         }
+
+        mLocationRequest = LocationRequest.create();
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setInterval(10 * 1000); // Update location every second
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ){
+                LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+            }
+        } else
+            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
     }
 
     @Override
@@ -145,24 +186,42 @@ public class PickLocActivity extends FragmentActivity implements
         if(requestCode == 101) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 buildGoogleApiClient();
+                ispermissionGranted = true;
             }
         }
     }
 
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
         isMapReady = true;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ){
+                mMap.setMyLocationEnabled(true);
+            }
+        } else
+            mMap.setMyLocationEnabled(true);
+
+        mMap.getUiSettings().setMyLocationButtonEnabled(true);
+
+        if(isGpsEnabled) {
+            new Handler().postDelayed(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    showCurrentLatlng();
+                    mMap.setOnCameraMoveStartedListener(PickLocActivity.this);
+                    mMap.setOnCameraIdleListener(PickLocActivity.this);
+                }
+            }, 500);
+        }
+        else if(ispermissionGranted) {
+            Toast.makeText(this, "GPS is not enabled.", Toast.LENGTH_SHORT).show();
+        }
+
         showCurrentLatlng();
     }
 
@@ -172,22 +231,59 @@ public class PickLocActivity extends FragmentActivity implements
             case LOADER_SAVE_LOC:
                 return new DataLoader(this, bundle, SAVELOC);
 
+            case LOADER_FETCH_ADDRESS:
+                return new FetchAddressLoader(this, currentLatLng);
+
             default:
                 return null;
         }
     }
 
     @Override
-    public void onLoadFinished(Loader loader, Object data) {
+    public void onLoadFinished(final Loader loader, Object data) {
         switch (loader.getId()) {
             case LOADER_SAVE_LOC:
                     sendBroadcast(new Intent(INTENT_REFRESH_LIST));
+                    showLoader(false);
                     finish();
+                break;
+
+            case LOADER_FETCH_ADDRESS:
+                if(data instanceof AddressDO){
+                    final AddressDO objAddressDO = (AddressDO) data;
+                    if(objAddressDO.code == AddressConstants.SUCCESS_RESULT) {
+
+                        setAddress(objAddressDO.message);
+//                        new Thread(new Runnable() {
+//                            @Override
+//                            public void run() {
+//                                final int count = new LocationDL().fetchLocsCount(PickLocActivity.this);
+//
+//                                runOnUiThread(new Runnable() {
+//                                    @Override
+//                                    public void run() {
+//
+//                                        SelLocDO objSelLoc = new SelLocDO("" + (count + 1), objAddressDO.message, 1, geoPosi.latitude, geoPosi.longitude);
+//
+//                                        Bundle bundle = new Bundle();
+//                                        bundle.putSerializable(BUNDLE_LOC, objSelLoc);
+//
+//                                        getSupportLoaderManager().initLoader(LOADER_SAVE_LOC, bundle, PickLocActivity.this).forceLoad();
+//                                    }
+//                                });
+//                            }
+//                        }).start();
+                    } else if(objAddressDO.code == AddressConstants.FAILURE_RESULT) {
+                        Toast.makeText(PickLocActivity.this, "Address not found", Toast.LENGTH_SHORT).show();
+                    }
+                }
                 break;
 
             default:
                 break;
         }
+
+        showLoader(false);
     }
 
     @Override
@@ -195,11 +291,56 @@ public class PickLocActivity extends FragmentActivity implements
 
     }
 
+    @Override
+    public void onCameraMoveStarted(int i) {
+        isUserInteracted = true;
+        LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+    }
+
+    @Override
+    public void onCameraIdle() {
+        // Cleaning all the markers.
+        if (mMap != null) {
+            mMap.clear();
+        }
+
+        currentLatLng = mMap.getCameraPosition().target;
+//        mZoom = mMap.getCameraPosition().zoom;
+        startIntentService();
+
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        LogUtils.infoLog(LOG_TAG, location.toString());
+
+        if(!isUserInteracted) {
+            currentLatLng = new LatLng(location.getLatitude(), location.getLongitude());
+            showCurrentLatlng();
+            startIntentService();
+        }
+
+//        Toast.makeText(LocationSearchActivity.this, "Lat: "+currentLatLng.latitude+" Lon: "+currentLatLng.longitude, Toast.LENGTH_SHORT).show();
+    }
+
+    protected void startIntentService() {
+        if(getSupportLoaderManager().getLoader(LOADER_FETCH_ADDRESS) == null)
+            getSupportLoaderManager().initLoader(LOADER_FETCH_ADDRESS, null, this).forceLoad();
+        else
+            getSupportLoaderManager().restartLoader(LOADER_FETCH_ADDRESS, null, this).forceLoad();
+    }
+
     void showCurrentLatlng() {
         if(isMapReady && isConnected) {
 //            mMap.addMarker(new MarkerOptions().position(currentLatLng).title("Current location"));
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 18));
         }
+    }
+
+    private void setAddress(String message){
+        if(message.contains("\n"))
+            message = message.replace("\n", " ");
+        edtAddress.setText(message);
     }
 
     protected synchronized void buildGoogleApiClient() {
@@ -220,6 +361,13 @@ public class PickLocActivity extends FragmentActivity implements
             mGoogleApiClient.connect();
     }
 
+    private void showLoader(boolean show) {
+        if(show)
+            pbLoad.setVisibility(View.VISIBLE);
+        else
+            pbLoad.setVisibility(View.INVISIBLE);
+    }
+
     private boolean isGpsEnabled(){
         LocationManager locationManager = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
         boolean isGpsProviderEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
@@ -233,5 +381,10 @@ public class PickLocActivity extends FragmentActivity implements
 
         ivMarker = (ImageView) findViewById(R.id.ivMarker);
         btnSelectLoc = (Button) findViewById(R.id.btnSelectLoc);
+        pbLoad = (ProgressBar) findViewById(R.id.pbLoad);
+
+        edtAddress = (EditText) findViewById(R.id.edtAddress);
+
+        showLoader(false);
     }
 }

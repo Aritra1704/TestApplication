@@ -32,6 +32,7 @@ dependencies {
     implementation 'com.android.support:design:26.0.0'
     testCompile 'junit:junit:4.12'
     implementation 'com.github.Aritra1704:UtilitiesJitPackLib:1.24'
+    implementation 'com.github.Aritra1704:LocationFinder:1.7'
     implementation 'com.android.support:cardview-v7:26.0.0'
     implementation 'com.google.code.gson:gson:2.8.1'
 }

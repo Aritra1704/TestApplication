@@ -13,7 +13,7 @@
         tools:context="com.zippr.testapplication.ui.PickLocActivity" />
 
     <EditText
-        android:id="@+id/edtLocation"
+        android:id="@+id/edtAddress"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="6dp"
@@ -37,4 +37,10 @@
         android:paddingLeft="18dp"
         android:paddingRight="18dp"
         android:text="Select Location" />
+
+    <ProgressBar
+        android:id="@+id/pbLoad"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center" />
 </FrameLayout>

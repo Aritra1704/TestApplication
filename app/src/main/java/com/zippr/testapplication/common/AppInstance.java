@@ -11,6 +11,7 @@ public class AppInstance extends Application {
     public static final int LOADER_SAVE_LOC                     = 1;
 
     public static final int FETCH_SHOW_ALLLOC                   = 101;
+    public static final int LOADER_FETCH_ADDRESS                = 102;
 
     public static final int REQUEST_PERMISSION_EXTERNAL_STORAGE = 123;
 

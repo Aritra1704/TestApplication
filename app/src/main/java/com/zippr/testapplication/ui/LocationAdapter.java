@@ -48,7 +48,7 @@ public class LocationAdapter extends RecyclerView.Adapter<LocationAdapter.ViewHo
         else
             holder.tvLocName.setText("");
 
-        holder.tvPickupCount.setText(holder.mItem.parcelCount + "");
+        holder.tvPickupCount.setText("Lat: " + holder.mItem.locLat + ", Lng: " + holder.mItem.locLng);
     }
 
     @Override

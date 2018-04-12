@@ -93,28 +93,6 @@ public class LocationSelcActivity extends AppCompatActivity implements LoaderMan
 
                     adapter.refresh(arrList);
                 }
-//                    if(data != null && data instanceof Cursor) {
-//                        Cursor cursor = (Cursor) data;
-//                        if(cursor != null && cursor.moveToFirst()) {
-//                            arrLoc.clear();
-//
-//                            do {
-//                                String locId = cursor.getString(cursor.getColumnIndex(LOC_ID));
-//                                String name = cursor.getString(cursor.getColumnIndex(NAME));
-//                                int parcelCount = StringUtils.getInt(cursor.getString(cursor.getColumnIndex(PARCELCOUNT)));
-//                                double loclat = StringUtils.getDouble(cursor.getString(cursor.getColumnIndex(LOCLAT)));
-//                                double loclng = StringUtils.getDouble(cursor.getString(cursor.getColumnIndex(LOCLNG)));
-//
-//                                SelLocDO objSelloc = new SelLocDO(locId, name, parcelCount, loclat, loclng);
-//                                arrLoc.add(objSelloc);
-//                            } while(cursor.moveToNext());
-//                        }
-//
-//                        adapter.refresh(arrLoc);
-//
-//                        if(cursor != null && !cursor.isClosed())
-//                            cursor.close();
-//                    }
                 break;
 
             default:
