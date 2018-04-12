@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Point;
 import android.location.Location;
 import android.location.LocationManager;
+import android.net.Network;
 import android.os.Build;
 import android.os.Handler;
 import android.support.annotation.NonNull;
@@ -27,6 +28,7 @@ import com.arpaul.gpslibrary.fetchAddressGeoCode.AddressConstants;
 import com.arpaul.gpslibrary.fetchAddressGeoCode.AddressDO;
 import com.arpaul.gpslibrary.fetchAddressGeoCode.FetchAddressLoader;
 import com.arpaul.utilitieslib.LogUtils;
+import com.arpaul.utilitieslib.NetworkUtility;
 import com.arpaul.utilitieslib.PermissionUtils;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -110,32 +112,38 @@ public class PickLocActivity extends FragmentActivity implements
 
                 if(!TextUtils.isEmpty(edtAddress.getText().toString())) {
                     showLoader(true);
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            final int count = new LocationDL().fetchLocsCount(PickLocActivity.this);
-
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-
-                                    SelLocDO objSelLoc = new SelLocDO("" + (count + 1), edtAddress.getText().toString(), 1, geoPosi.latitude, geoPosi.longitude);
-
-                                    Bundle bundle = new Bundle();
-                                    bundle.putSerializable(BUNDLE_LOC, objSelLoc);
-
-                                    getSupportLoaderManager().initLoader(LOADER_SAVE_LOC, bundle, PickLocActivity.this).forceLoad();
-                                }
-                            });
-                        }
-                    }).start();
+                    saveLocation(edtAddress.getText().toString());
                 } else {
+                    if(!NetworkUtility.isConnectionAvailable(PickLocActivity.this))
+                        saveLocation("Offline saved");
                     Toast.makeText(PickLocActivity.this, "Unable to find your address", Toast.LENGTH_SHORT).show();
                 }
 
             }
         });
 
+    }
+
+    private void saveLocation(final String address) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final int count = new LocationDL().fetchLocsCount(PickLocActivity.this);
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        SelLocDO objSelLoc = new SelLocDO("" + (count + 1), address, 1, geoPosi.latitude, geoPosi.longitude);
+
+                        Bundle bundle = new Bundle();
+                        bundle.putSerializable(BUNDLE_LOC, objSelLoc);
+
+                        getSupportLoaderManager().initLoader(LOADER_SAVE_LOC, bundle, PickLocActivity.this).forceLoad();
+                    }
+                });
+            }
+        }).start();
     }
 
     @Override
@@ -254,25 +262,6 @@ public class PickLocActivity extends FragmentActivity implements
                     if(objAddressDO.code == AddressConstants.SUCCESS_RESULT) {
 
                         setAddress(objAddressDO.message);
-//                        new Thread(new Runnable() {
-//                            @Override
-//                            public void run() {
-//                                final int count = new LocationDL().fetchLocsCount(PickLocActivity.this);
-//
-//                                runOnUiThread(new Runnable() {
-//                                    @Override
-//                                    public void run() {
-//
-//                                        SelLocDO objSelLoc = new SelLocDO("" + (count + 1), objAddressDO.message, 1, geoPosi.latitude, geoPosi.longitude);
-//
-//                                        Bundle bundle = new Bundle();
-//                                        bundle.putSerializable(BUNDLE_LOC, objSelLoc);
-//
-//                                        getSupportLoaderManager().initLoader(LOADER_SAVE_LOC, bundle, PickLocActivity.this).forceLoad();
-//                                    }
-//                                });
-//                            }
-//                        }).start();
                     } else if(objAddressDO.code == AddressConstants.FAILURE_RESULT) {
                         Toast.makeText(PickLocActivity.this, "Address not found", Toast.LENGTH_SHORT).show();
                     }
@@ -306,7 +295,11 @@ public class PickLocActivity extends FragmentActivity implements
 
         currentLatLng = mMap.getCameraPosition().target;
 //        mZoom = mMap.getCameraPosition().zoom;
-        startIntentService();
+
+        if(NetworkUtility.isConnectionAvailable(PickLocActivity.this))
+            startIntentService();
+        else
+            setAddress("");
 
     }
 
